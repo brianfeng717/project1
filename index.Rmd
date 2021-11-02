@@ -19,103 +19,118 @@ tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
 
 ## Data Wrangling, Exploration, Visualization
 
-### Name and EID here
+### Brian Feng (btf457)
 
 #### Introduction 
-
-I am interested to analyze the similarities and differences between Fortune Top 1000 companies. I am hoping to run numerical analyses on company finances and categorical analyses based on company locations. 
-
+I am interested in analyzing the similarities and differences between Fortune Top 500 companies to see if I can find any patterns. In this project, the numerical aspects focus on company finances and categorical aspects focus on variables such as: company locations, ceo gender, etc. The data used for this project is a dataset from Kaggle called "Fortune 1000". It includes variables on top ranked Fortune companies, such as revenue, profit, whether the CEO is new. 
 ```{R}
 library(tidyverse)
 fortune <- read_csv("~/project1/Fortune_1000.csv")
-glimpse(fortune)
+glimpse(fortune[-c(14,18)])
 ```
+The code above provides a glimpse into the type of variables we will be looking at for this project.
 
 #### Tidying: Reshaping
 
-If your datasets are tidy already, demonstrate that you can reshape data with pivot wider/longer here (e.g., untidy and then retidy). Alternatively, it may be easier to wait until the wrangling section so you can reshape your summary statistics. Note here if you are going to do this.
-
-```{R}
-# your tidying code (if applicable; can also wait until wrangling section)
-```
+I will be performing tidying/reshaping later in the wrangling section. 
 
     
 #### Joining/Merging
-
+The dataset that I chose doesn't have a good pair of dataset that I can join it with so I intentionally split it up into a dataset that has all the numerical values and a dataset that has all the categorical values. The catch here is that I made the numerical dataset only 500 rows so that I will be joining datasets with different dimensions to make it more of a challenge.
 ```{R}
 numerical <- fortune[c(1,2,3,4,5,6)]
 numerical <- numerical[1:500,]
-categorical <- fortune[-c(2,3,4,5,6,18)]
-top500 <- inner_join(numerical,categorical,by="company")
-# your joining code
+dim(numerical)
+categorical <- fortune[-c(2,3,4,5,6,14,18)]
+dim(categorical)
 ```
-
-The dataset that I chose doesn't have a good pair of dataset that I can join it with so I intentionally split it up into a dataset that has all the numerical values and a dataset that has all the categorical values. The catch here is that I made the numerical dataset only 500 rows so that I will be joining datasets with different dimensions to make it more of a challenge. In my scenario, because my optimal result is the top 500 companies so I can either run an inner_join or a left_join with the numerical dataset on the leftside. 
-
-####  Wrangling
+ The numerical dataset has 500 rows and 6 variables while the categorical dataset has 1000 rows and 11 variables. 
 
 ```{R}
+#joining code
+top500 <- inner_join(numerical,categorical,by="company")
+```
+ In my scenario, because my optimal result is the top 500 companies so I can either run an inner_join or a left_join with the numerical dataset on the leftside. 
+After joining, the top 500 companies were kept while all companies from rank 501 - 1000 is omitted. Further, the numerical dataset has 6 variables while the categorical dataset has 11 variables, and since both dataset have the overlapping "company" ID, we will only be keeping one. Therefore, the resulting dataset, which we will be using throughout the project, called "top500" has a total of 500 rows and 16 variables. 
+
+
+####  Wrangling
+The six core dplyr functions are used throughout the code below: 
+```{R}
 library(dplyr)
-#summary statistics for each variable
-top500%>%summarize_if(is.numeric, mean,na.rm=T)
-top500%>%summarize_if(is.numeric, sd,na.rm=T)
+library(knitr)
+
+#To find the rank of the previous year, we will mutate and create a new variable by adding the variables of current "rank" to "rank_change"
+top500<-top500%>%mutate(previous_rank=rank+rank_change)
+top500%>%select(rank,rank_change,previous_rank)%>%slice(1:5)
+
+#using regex with stringr to see how many company names end with the word "Energy"
+sum(str_detect(top500$company,"Energy$"))
+
+#using summarize_all with at least 5 unique functions
+top500 %>% select(is.numeric)%>%summarize_all(funs(sum,sd,min,max,n_distinct))
+
+#another way to compute individual summary statistics for each variable
 top500%>%summarize_if(is.character, n_distinct)
-#using 
-mean(str_detect(top500$company,"^W"))
-
-
-#To find the rank of the previous year, we will mutate and create a new variable by combing the variables of current rank and rank_change
-top500%>%mutate(previous_rank=rank+rank_change)
 
 #See the distribution of top500 companies based on State
 top500%>%group_by(state)%>%summarize(count=n())%>%arrange(desc(count))
 
 #See how profitable each sector is 
 sector_count<-top500%>%group_by(sector)%>%summarize(profitability=mean(profitable=="yes"))%>%arrange(desc(profitability))
+sector_count
 
-#See how many of the companies in the Financials sector is profitable
-top500%>%filter(ceo_woman=="yes")%>%select(-c())
+#See how many newcoming female CEO compare to experienced female CEO
+top500%>%filter(ceo_woman=="yes")%>%group_by(newcomer)%>%summarize(median_profit=median(profit))
   
-  count
-male_vs_female <- top500 %>% group_by(ceo_woman)%>%summarize(mean_profit=mean(profit),mean_employee=mean(`num. of employees`,mean_revenue=mean(revenue),mean_market_cap=mean(`Market Cap`)))
+#writing own function to convert revenue to British Pound
+pound_conversion <- function(x){
+  mean(x)*0.73
+}
+top500%>%group_by(ceo_founder)%>%summarize(pound_conversion(revenue))
 
-#utilized pivot_wider to reshape dataset.   
+#IMPORTANT: Tidying/Reshaping: utilized pivot_wider to reshape dataset.   
 sector_female_ceo <-top500%>%group_by(sector,ceo_woman)%>%summarize(mean_profit=mean(profit))%>%arrange(desc(sector)) 
-head(sector_female_ceo)
+sector_female_ceo%>%slice(1:5)
 sector_female_ceo<-sector_female_ceo%>%pivot_wider(names_from = "ceo_woman",names_prefix="ceo_woman_",values_from="mean_profit")
-head(sector_female_ceo)
+sector_female_ceo%>%slice(1:5)
 
 
 
 ```
-
-Your discussion of wrangling section here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
-
+From the dimensions of before and after, we can see how we succesfully converted the dataset from 37 rows to 21 rows and made it visually more pleasing with tidying and reshaping techniques.
 
 #### Visualizing
 
 ```{R}
-# your plot 1
+male_vs_female<-top500 %>% group_by(ceo_woman)%>% select(revenue,profit,`num. of employees`)%>% gather(name, value, -c(ceo_woman))
+male_vs_female%>%head
+
+male_vs_female %>% ggplot(aes(x=name,y=value,fill=ceo_woman))+geom_bar(stat="summary", position="dodge")+
+  geom_errorbar(stat="summary",position="dodge")+
+  ggtitle("CEO: Male vs Female")+xlab("Financial Indicators")+ylab("Values")+
+  theme(legend.position = c(.9,.9))+scale_y_continuous(breaks=seq(0, 100000,20000))
 ```
 
-Your discussion of plot 1
+The plot above compares the variables - number of employees, profit, and revenue - between companies with female CEOs and male CEOs. Although the mean of female CEO companies is a little higher, it does not appear that there is an obvious trend between the two groups based on the naked eye. Therefore, further statistical analyses is needed to prove any significance. Nevertheless, this is an interesting topic to continue exploring in the future! 
 
 ```{R}
-# your plot 2
+top500%>%ggplot(aes(x=profit,y=revenue))+geom_point(color="dark red")+ 
+  geom_smooth(method="lm")+scale_x_continuous(labels=scales::dollar)+scale_y_continuous(labels=scales::dollar)+
+  ggtitle("Revenue vs Profit Scatter Plot and Linear Relationship")+xlab("Profit (USD)")+ylab("Revenue (USD)")+theme(axis.text.y = element_text(angle=20, hjust=1))
 ```
 
-Your discussion of plot 2
+The second plot visualizes the relationship between company profits and company revenues. There does appear to be a strong positive linear relationship between the two variables, it becomes especially apparent after the geom_smooth linear line (blue line) is added to the scatter plot. 
 
 ```{R}
-# your plot 3
+top500%>%filter(abs(rank_change)<50)%>%ggplot(aes(y=rank_change, x=ceo_founder)) +geom_boxplot()+
+  geom_jitter(alpha=.3, aes(color=rank))+
+  theme(legend.position = "bottom")+scale_y_continuous(breaks=seq(-50, 50,20))+
+  ggtitle("Rank Volatility for whether CEO is Founder ")+xlab("Founder is the CEO?")+ylab("Rank Change the Past Year")
 ```
 
-Your discussion of plot 3
+This boxplot compares whether having the founder of the company as the CEO affects how volatile the company is by using the rank change in the past year as the indicator. Companies with the CEO not being the founder has a mean closer to the 0 rank_change mark, while companies with founder as CEO has a higher rank change mean, which indicates that it is rising in ranks (a good thing). However, we do have to note that comapnies with founders as CEO has a significantly smaller sample size so it might not be best to draw conclusions direcly from here, and further analyses/tests is needed.   
 
 #### Concluding Remarks
 
-If any!
-
-
-
-
+This was a very informative and hands-on project. I had a lot of fun doing it!
