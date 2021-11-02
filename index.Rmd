@@ -23,11 +23,12 @@ tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
 
 #### Introduction 
 
-Paragraph or two introducing your datasets and variables, why they are interesting to you, etc.
+I am interested to analyze the similarities and differences between Fortune Top 1000 companies. I am hoping to run numerical analyses on company finances and categorical analyses based on company locations. 
 
 ```{R}
-# read your datasets in here, e.g., with read_csv()
-
+library(tidyverse)
+fortune <- read_csv("~/project1/Fortune_1000.csv")
+glimpse(fortune)
 ```
 
 #### Tidying: Reshaping
@@ -42,21 +43,50 @@ If your datasets are tidy already, demonstrate that you can reshape data with pi
 #### Joining/Merging
 
 ```{R}
-# your joining code
-
+numerical <- fortune[c(1,2,3,4,5,6)]
+numerical <- numerical[1:500,]
+categorical <- fortune[-c(2,3,4,5,6,18)]
+top500 <- inner_join(numerical,categorical,by="company")
 # your joining code
 ```
 
-Discussions of joining here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+The dataset that I chose doesn't have a good pair of dataset that I can join it with so I intentionally split it up into a dataset that has all the numerical values and a dataset that has all the categorical values. The catch here is that I made the numerical dataset only 500 rows so that I will be joining datasets with different dimensions to make it more of a challenge. In my scenario, because my optimal result is the top 500 companies so I can either run an inner_join or a left_join with the numerical dataset on the leftside. 
 
 ####  Wrangling
 
 ```{R}
-# your wrangling code
+library(dplyr)
+#summary statistics for each variable
+top500%>%summarize_if(is.numeric, mean,na.rm=T)
+top500%>%summarize_if(is.numeric, sd,na.rm=T)
+top500%>%summarize_if(is.character, n_distinct)
+#using 
+mean(str_detect(top500$company,"^W"))
 
-# your wrangling code
 
-# your wrangling code
+#To find the rank of the previous year, we will mutate and create a new variable by combing the variables of current rank and rank_change
+top500%>%mutate(previous_rank=rank+rank_change)
+
+#See the distribution of top500 companies based on State
+top500%>%group_by(state)%>%summarize(count=n())%>%arrange(desc(count))
+
+#See how profitable each sector is 
+sector_count<-top500%>%group_by(sector)%>%summarize(profitability=mean(profitable=="yes"))%>%arrange(desc(profitability))
+
+#See how many of the companies in the Financials sector is profitable
+top500%>%filter(ceo_woman=="yes")%>%select(-c())
+  
+  count
+male_vs_female <- top500 %>% group_by(ceo_woman)%>%summarize(mean_profit=mean(profit),mean_employee=mean(`num. of employees`,mean_revenue=mean(revenue),mean_market_cap=mean(`Market Cap`)))
+
+#utilized pivot_wider to reshape dataset.   
+sector_female_ceo <-top500%>%group_by(sector,ceo_woman)%>%summarize(mean_profit=mean(profit))%>%arrange(desc(sector)) 
+head(sector_female_ceo)
+sector_female_ceo<-sector_female_ceo%>%pivot_wider(names_from = "ceo_woman",names_prefix="ceo_woman_",values_from="mean_profit")
+head(sector_female_ceo)
+
+
+
 ```
 
 Your discussion of wrangling section here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
